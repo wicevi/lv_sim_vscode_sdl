@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "infrared_imaging.h": "c",
+        "lvgl.h": "c",
+        "desktop.h": "c",
+        "lvgl_tool.h": "c",
+        "mouse.h": "c",
+        "monitor.h": "c",
+        "typeinfo": "c"
+    }
+}
