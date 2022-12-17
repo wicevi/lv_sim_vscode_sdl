@@ -18,6 +18,8 @@ static int tick_thread(void *data);
 #include "apps/infrared_imaging/infrared_imaging.h"
 #include "apps/desktop/desktop.h"
 
+float temp_buf[1024] = {0};
+
 static desktop_app_config_t setting_app_config = {
     .name = "setting",
     .icon_dsc = NULL,
@@ -25,12 +27,22 @@ static desktop_app_config_t setting_app_config = {
     .icon_zoom = 172,
     .position = 7
 };
+static ir_imaging_config_t ir_image_config = {
+    .row_num = 32,
+    .col_num = 24,
+    .temperature_buf = temp_buf,
+    .max_temperature = 68,
+    .min_temperature = -40,
+    .upate_flag = 1,
+};
 static desktop_app_config_t ir_image_app_config = {
     .name = "IR image",
     .icon_dsc = NULL,
     .icon_path = "A:/home/wicevi/lv_sim_vscode_sdl/apps/desktop/imgs/ir_image.png",
     .icon_zoom = 180,
-    .position = 4
+    .position = 4,
+    .create_func = ir_imaging_create_main_page,
+    .user_data = &ir_image_config
 };
 static desktop_app_config_t ota_app_config = {
     .name = "Shell",
@@ -52,7 +64,10 @@ static desktop_create_config_t desktop_config = {
     .item_size = 64,
     .item_name_color = LV_COLOR_MAKE(0XFF, 0XFF, 0XFF),
     .app_num = 3,
-    .app_configs = &desktop_app_configs
+    .row_num = 3,
+    .is_auto_y_offset = 1,
+    .y_space_offset = 0,
+    .app_configs = desktop_app_configs
 };
 
 

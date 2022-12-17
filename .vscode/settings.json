@@ -6,6 +6,12 @@
         "lvgl_tool.h": "c",
         "mouse.h": "c",
         "monitor.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "mousewheel.h": "c",
+        "random": "c",
+        "lv_demo.h": "c",
+        "keyboard.h": "c",
+        "stdio.h": "c",
+        "algorithm": "c"
     }
 }
