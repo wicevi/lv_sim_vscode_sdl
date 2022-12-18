@@ -6,6 +6,7 @@
 #define TOP_STATUS_BAR_COLOR        lv_color_hex(0X000000)      //状态栏背景颜色
 #define TOP_STATUS_BAR_BG_OPA       LV_OPA_50                   //状态栏背景透明度
 #define TOP_STATUS_LABEL_COLOR      lv_color_hex(0XFFFFFF)      //状态栏图标颜色
+#define TOP_STATUS_REFRESH_TIME     500                         //状态栏刷新时间
 //底部菜单栏相关
 #define BOTTOM_MENU_BAR_HEIGHT      32                          //菜单栏高度
 #define BOTTOM_MENU_BAR_COLOR       lv_color_hex(0X000000)      //菜单栏背景颜色
@@ -35,6 +36,8 @@ static lv_obj_t *top_status_bar = NULL;
 static lv_obj_t *time_label = NULL, *usb_label = NULL, *warn_label = NULL;
 /// @brief 顶部状态栏右侧图标
 static lv_obj_t *bat_label = NULL, *charge_label = NULL, *wifi_label = NULL, *ble_label = NULL;
+/// @brief 顶部状态栏刷新定时器
+static lv_timer_t *top_bar_refresh_timer = NULL;
 /// @brief APP应用容器
 static lv_obj_t *app_content_layout = NULL;
 /// @brief APP应用点击时样式
@@ -109,6 +112,19 @@ static void desktop_get_app_point(uint8_t position, lv_point_t *point, desktop_a
     point->x = ((position - 1) % app_layout_cfg->row_num) * (app_layout_cfg->item_size + app_layout_cfg->x_space_size) + app_layout_cfg->x_space_size;
     point->y = ((position - 1) / app_layout_cfg->row_num) * (app_layout_cfg->item_size + app_layout_cfg->y_space_size) + app_layout_cfg->y_space_size;
 }
+/// @brief APP销毁事件
+/// @param event 事件对象
+static void desktop_app_destroy_event_cb(lv_event_t *event)
+{
+    desktop_app_cache_t *app_cache = lv_event_get_user_data(event);
+    if (app_cache == NULL) return;
+
+    LV_LOG_USER("desktop_app_destroy_event_cb: %p.", app_cache->create_func_prt);
+    app_cache->app_content_layout = NULL;
+    app_cache->create_func_prt = NULL;
+    active_app_cache = NULL;
+    lv_obj_clear_flag(desktop_bg_img, LV_OBJ_FLAG_HIDDEN);
+}
 /// @brief 启动对应配置的APP
 /// @param app_config APP配置
 static void desktop_run_app(desktop_app_config_t *app_config)
@@ -148,15 +164,14 @@ static void desktop_run_app(desktop_app_config_t *app_config)
     app_cache->app_content_layout = app_config->create_func(app_content_layout, app_config->user_data);
     if (app_cache->app_content_layout == NULL) {
         //TODO:显示提示弹窗
-
+        
         LV_LOG_USER("App startup failed!");
         return;
     }
     bg_color = lv_obj_get_style_bg_color(app_cache->app_content_layout, LV_PART_MAIN);
+    lv_obj_add_event_cb(app_cache->app_content_layout, desktop_app_destroy_event_cb, LV_EVENT_DELETE, app_cache);
     lv_obj_set_style_bg_color(desktop_global_layout, bg_color, LV_PART_MAIN);
     lv_obj_add_flag(desktop_bg_img, LV_OBJ_FLAG_HIDDEN);
-    //TODO: 注册应用退出事件
-
     app_cache->create_func_prt = app_config->create_func;
     active_app_cache = app_cache;
 }
@@ -164,8 +179,17 @@ static void desktop_run_app(desktop_app_config_t *app_config)
 /// @param 无
 static void desktop_list_btn_click(void)
 {
+    if (active_app_cache == NULL) return;
+    if (active_app_cache->app_content_layout == NULL || active_app_cache->create_func_prt == NULL) {
+        active_app_cache->app_content_layout = NULL;
+        active_app_cache->create_func_prt = NULL;
+        active_app_cache = NULL;
+        return;
+    }
+
     //TODO: 显示所有缓存中的应用列表
 
+    lv_event_send(active_app_cache->app_content_layout, LV_EVENT_CANCEL, "LIST");
 }
 /// @brief 底部菜单栏主页按钮执行函数
 /// @param 无
@@ -178,8 +202,10 @@ static void desktop_home_btn_click(void)
         active_app_cache = NULL;
         return;
     }
+
     lv_obj_clear_flag(desktop_bg_img, LV_OBJ_FLAG_HIDDEN);
     lv_obj_add_flag(active_app_cache->app_content_layout, LV_OBJ_FLAG_HIDDEN);
+    lv_event_send(active_app_cache->app_content_layout, LV_EVENT_CANCEL, "HOME");
     active_app_cache = NULL;
 }
 /// @brief 底部菜单栏返回按钮执行函数
@@ -193,8 +219,7 @@ static void desktop_back_btn_click(void)
         active_app_cache = NULL;
         return;
     }
-    //TODO: 发送事件给应用
-
+    lv_event_send(active_app_cache->app_content_layout, LV_EVENT_CANCEL, "BACK");
 }
 /// @brief 底部菜单栏点击事件
 /// @param event 事件对象
@@ -291,6 +316,48 @@ static void desktop_app_item_event_cb(lv_event_t *event)
         default:
             break;
     }
+}
+/// @brief 顶部状态栏信息更新定时器回调函数
+/// @param timer 定时器对象
+static void desktop_top_bar_refresh_timer(lv_timer_t *timer)
+{
+    const char *bat_symbol;
+    desktop_top_bar_info_t *top_bar_info = (desktop_top_bar_info_t *) timer->user_data;
+    if (top_bar_info == NULL || desktop_global_layout == NULL) return;
+
+    if (lv_obj_has_flag(desktop_global_layout, LV_OBJ_FLAG_HIDDEN)) return;
+    lv_label_set_text_fmt(time_label, "%02d:%02d", top_bar_info->time_s / 60, top_bar_info->time_s % 60);
+    if (top_bar_info->usb_is_cnt) lv_obj_clear_flag(usb_label, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(usb_label, LV_OBJ_FLAG_HIDDEN);
+    if (top_bar_info->wifi_is_cnt) lv_obj_clear_flag(wifi_label, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(wifi_label, LV_OBJ_FLAG_HIDDEN);
+    if (top_bar_info->ble_is_cnt) lv_obj_clear_flag(ble_label, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(ble_label, LV_OBJ_FLAG_HIDDEN);
+    if (top_bar_info->is_warning) lv_obj_clear_flag(warn_label, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(warn_label, LV_OBJ_FLAG_HIDDEN);
+    if (top_bar_info->is_charging) lv_obj_clear_flag(charge_label, LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(charge_label, LV_OBJ_FLAG_HIDDEN);
+    if (top_bar_info->bat_percentage < 10) bat_symbol = LV_SYMBOL_BATTERY_EMPTY;
+    else if (top_bar_info->bat_percentage < 30) bat_symbol = LV_SYMBOL_BATTERY_1;
+    else if (top_bar_info->bat_percentage < 50) bat_symbol = LV_SYMBOL_BATTERY_2;
+    else if (top_bar_info->bat_percentage < 80) bat_symbol = LV_SYMBOL_BATTERY_3;
+    else bat_symbol = LV_SYMBOL_BATTERY_FULL;
+    lv_label_set_text_fmt(bat_label, "%s %d%%", bat_symbol, top_bar_info->bat_percentage);
+}
+/// @brief 桌面销毁事件回调
+/// @param event 事件对象
+static void desktop_self_destroy_event_cb(lv_event_t *event)
+{
+    if (top_bar_refresh_timer != NULL) {
+        lv_timer_del(top_bar_refresh_timer);
+        top_bar_refresh_timer = NULL;
+    }
+    if (app_layout_config.position_state != NULL) {
+        lv_mem_free(app_layout_config.position_state);
+        app_layout_config.position_state = NULL;
+    }
+    lv_memset_00(app_caches, sizeof(desktop_app_cache_t) * APP_CACHE_MAX_NUM);
+    desktop_global_layout = NULL;
 }
 /// @brief 创建桌面应用并返回全局容器对象
 /// @param parent 父布局对象
@@ -481,7 +548,8 @@ lv_obj_t *desktop_create_main_page(lv_obj_t *parent, void *user_data)
         lv_obj_center(menu_img);
     }
     
-    
+    top_bar_refresh_timer = lv_timer_create(desktop_top_bar_refresh_timer, TOP_STATUS_REFRESH_TIME,  desktop_config->top_bar_info);
+    lv_obj_add_event_cb(desktop_global_layout, desktop_self_destroy_event_cb, LV_EVENT_DELETE, NULL);
     return desktop_global_layout;
 }
 

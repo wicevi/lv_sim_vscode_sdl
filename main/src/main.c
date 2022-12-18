@@ -17,6 +17,7 @@ static int tick_thread(void *data);
 
 #include "apps/infrared_imaging/infrared_imaging.h"
 #include "apps/desktop/desktop.h"
+#include <math.h>
 
 float temp_buf[1024] = {0};
 
@@ -27,13 +28,20 @@ static desktop_app_config_t setting_app_config = {
     .icon_zoom = 172,
     .position = 7
 };
+
+static ir_imaging_buf_info_t ir_img_buf_info = {
+    .temperature_buf = temp_buf,
+    .max_temperature = 248.9,
+    .min_temperature = -20.6,
+    .upate_flag = 1,
+    .cnt_states = 1,
+    .connect_func = NULL,
+    .disconnect_func = NULL
+};
 static ir_imaging_config_t ir_image_config = {
     .row_num = 32,
     .col_num = 24,
-    .temperature_buf = temp_buf,
-    .max_temperature = 68,
-    .min_temperature = -40,
-    .upate_flag = 1,
+    .ir_img_buf_info = &ir_img_buf_info
 };
 static desktop_app_config_t ir_image_app_config = {
     .name = "IR image",
@@ -57,7 +65,7 @@ static desktop_app_config_t *desktop_app_configs[] = {
     &ir_image_app_config, 
     &ota_app_config
 };
-
+static desktop_top_bar_info_t top_bar_info = {0};
 static desktop_create_config_t desktop_config = {
     .bg_img_dsc = NULL,
     .bg_img_path = "A:/home/wicevi/lv_sim_vscode_sdl/apps/desktop/imgs/desktop_bg1.png",
@@ -67,12 +75,13 @@ static desktop_create_config_t desktop_config = {
     .row_num = 3,
     .is_auto_y_offset = 1,
     .y_space_offset = 0,
-    .app_configs = desktop_app_configs
+    .app_configs = desktop_app_configs,
+    .top_bar_info = &top_bar_info
 };
-
 
 int main(int argc, char **argv)
 {
+    uint32_t time_ms = 0;
     (void)argc; /*Unused*/
     (void)argv; /*Unused*/
 
@@ -88,6 +97,20 @@ int main(int argc, char **argv)
         * It could be done in a timer interrupt or an OS task too.*/
         lv_timer_handler();
         usleep(5 * 1000);
+        temp_buf[rand() % 768] += 1.0f;
+        time_ms += 5;
+        if ((time_ms % 100) < 5 && top_bar_info.bat_percentage < 100) top_bar_info.bat_percentage++;
+        if ((time_ms % 1000) < 5) {
+            top_bar_info.time_s++;
+            ir_img_buf_info.upate_flag = 1;
+        } if (time_ms >= 10000) {
+            top_bar_info.usb_is_cnt = rand() % 2;
+            top_bar_info.wifi_is_cnt = rand() % 2;
+            top_bar_info.ble_is_cnt = rand() % 2;
+            top_bar_info.is_warning = rand() % 2;
+            top_bar_info.is_charging = rand() % 2;
+            time_ms = 0;
+        }
     }
 
     return 0;

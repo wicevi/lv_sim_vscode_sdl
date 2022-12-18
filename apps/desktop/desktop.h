@@ -3,6 +3,17 @@
 
 #include "lvgl.h"
 
+/// @brief 桌面顶部状态栏信息
+typedef struct
+{
+    uint32_t time_s;        //时间（单位：S）
+    uint8_t usb_is_cnt;     //USB是否连接
+    uint8_t wifi_is_cnt;    //WiFi是否连接
+    uint8_t ble_is_cnt;     //蓝牙是否连接
+    uint8_t is_warning;     //是否有警告信息
+    uint8_t is_charging;    //是否正在充电
+    uint8_t bat_percentage; //当前电池电量百分比
+} desktop_top_bar_info_t;
 /// @brief 要在桌面上显示的应用配置结构体
 typedef struct
 {
@@ -14,7 +25,7 @@ typedef struct
     lv_obj_t *(*create_func)(lv_obj_t *parent, void *user_data);    //应用创建（启动）函数
     void *user_data;                //应用启动函数参数
 } desktop_app_config_t;
-/// @brief 桌面应用的配置信息
+/// @brief 桌面应用创建的配置信息
 typedef struct
 {
     const lv_img_dsc_t *bg_img_dsc; //桌面背景图片对象  TODO: 多背景图片轮换功能
@@ -25,7 +36,8 @@ typedef struct
     uint8_t row_num;                //桌面单行显示的APP应用数量
     uint8_t is_auto_y_offset;       //是否自动补偿Y轴间隔大小
     lv_coord_t y_space_offset;      //指定Y轴间隔大小的偏移量（若启用is_auto_y_offset，该项无效）
-    desktop_app_config_t **app_configs;
+    desktop_app_config_t **app_configs;     //所有应用的配置
+    desktop_top_bar_info_t *top_bar_info;   //顶部状态栏信息
 } desktop_create_config_t;
 /// @brief 桌面的APP应用布局配置
 typedef struct
