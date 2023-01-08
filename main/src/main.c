@@ -110,6 +110,7 @@ int main(int argc, char **argv)
             top_bar_info.is_warning = rand() % 2;
             top_bar_info.is_charging = rand() % 2;
             time_ms = 0;
+            ir_img_buf_info.cnt_states = !ir_img_buf_info.cnt_states;
         }
     }
 

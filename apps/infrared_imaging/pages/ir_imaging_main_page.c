@@ -55,12 +55,10 @@ static const int32_t scale_temperature[] = {
 };
 /// @brief 主要温度信息
 static lv_obj_t *max_temp_label = NULL, *target_temp_label = NULL, *min_temp_label = NULL;
+/// @brief 控制按钮相关
+static lv_obj_t *save_btn = NULL, *record_btn = NULL, *clear_btn = NULL, *cnt_btn = NULL;
 /// @brief 目标坐标信息
 static lv_point_t target_point = {0};
-/// @brief 控制按钮容器
-static lv_obj_t *ctrl_btn_layout = NULL;
-/// @brief 断连相关容器
-static lv_obj_t *discnt_show_layout = NULL;
 /// @brief 成像图片布局配置
 static ir_imaging_buf_layout_config_t buf_layout_config = {0};
 /// @brief 根据温度判断属于哪两个刻度区间
@@ -255,12 +253,20 @@ static void ir_imaging_draw_target(lv_point_t *point, ir_imaging_buf_layout_conf
     if (index >= 0) {
         lv_draw_img_dsc_init(&img_dsc);
         img_dsc.opa = LV_OPA_50;
-        lv_canvas_draw_img(ir_img_canvas, point->x - 12, point->y - 12, "A:/home/wicevi/lv_sim_vscode_sdl/apps/infrared_imaging/imgs/target.png", &img_dsc);
+        lv_canvas_draw_img(ir_img_canvas, point->x - 12, point->y - 12, "A:/home/wicevi/lv_sim_vscode_sdl/apps/infrared_imaging/imgs/target2.png", &img_dsc);
         lv_label_set_text_fmt(target_temp_label, "%d.%d℃", (int)buf_info->temperature_buf[index], ((int)buf_info->temperature_buf[index] * 10) % 10);
         lv_obj_set_style_text_color(target_temp_label, ir_imaging_get_temperature_color(buf_info->temperature_buf[index]), LV_PART_MAIN);
-        target_point.x = point->x;
-        target_point.y = point->y;
     }
+}
+/// @brief 刷新画布
+/// @param 无 
+static void ir_imaging_canvas_refresh(ir_imaging_buf_info_t *buf_info)
+{
+    if (ir_img_canvas == NULL) return;
+    lv_canvas_fill_bg(ir_img_canvas, canvas_bg_color, LV_OPA_COVER);
+    ir_imaging_draw_scale(buf_info);
+    ir_imaging_draw_img(&buf_layout_config, buf_info);
+    ir_imaging_draw_target(&target_point, &buf_layout_config, buf_info);
 }
 /// @brief 画布点击事件
 /// @param event 
@@ -271,7 +277,11 @@ static void ir_imaging_canvas_click_event_cb(lv_event_t *event)
     if (ir_img_canvas == NULL || buf_info == NULL) return;
 
     lv_tl_indev_get_absolute_point(&point, ir_img_canvas, lv_scr_act());
-    ir_imaging_draw_target(&point, &buf_layout_config, buf_info);
+    if (ir_imaging_get_temperature_index(&point, &buf_layout_config) >= 0) {
+        target_point.x = point.x;
+        target_point.y = point.y;
+        ir_imaging_canvas_refresh(buf_info);
+    }
 }
 /// @brief 红外成像应用相关数据刷新定时器回调函数
 /// @param timer 定时器对象
@@ -285,18 +295,19 @@ static void ir_imaging_info_refresh_timer(lv_timer_t *timer)
     if (last_cnt_states != buf_info->cnt_states) {
         last_cnt_states = buf_info->cnt_states;
         if (buf_info->cnt_states) {
-            //TODO: 显示正常状态操作按钮
-
+            lv_obj_add_flag(cnt_btn, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(save_btn, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(record_btn, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(clear_btn, LV_OBJ_FLAG_HIDDEN);
         } else {
-            //TODO: 显示重新连接按钮
-            
+            lv_obj_add_flag(save_btn, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(record_btn, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(clear_btn, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_clear_flag(cnt_btn, LV_OBJ_FLAG_HIDDEN);
         }
     }
     if (buf_info->cnt_states && buf_info->upate_flag) {
-        ir_imaging_draw_scale(buf_info);
-        ir_imaging_draw_img(&buf_layout_config, buf_info);
-        ir_imaging_draw_target(&target_point, &buf_layout_config, buf_info);
-        // ir_imaging_draw_target(&(lv_point_t){50, 50}, &buf_layout_config);
+        ir_imaging_canvas_refresh(buf_info);
         buf_info->upate_flag = 0;
     }
 }
@@ -321,7 +332,7 @@ static void ir_imaging_self_menu_event_cb(lv_event_t *event)
     if (menu_str != NULL) {
         if (strncmp(menu_str, "BACK", 4) == 0) {
             //TODO: 弹窗确认是否退出
-
+            
             lv_obj_del(ir_imaging_global_layout);
         }
     }
@@ -332,7 +343,7 @@ static void ir_imaging_self_menu_event_cb(lv_event_t *event)
 /// @return 应用的全局容器对象
 lv_obj_t *ir_imaging_create_main_page(lv_obj_t *parent, void *user_data)
 {
-    lv_obj_t *tmp_layout = NULL, *ctrl_btn = NULL;
+    lv_obj_t *tmp_layout = NULL, *tmp_label = NULL;
     lv_coord_t parent_w = LV_SIZE_CONTENT, parent_h = LV_SIZE_CONTENT;
     ir_imaging_config_t *ir_imaging_config = NULL;
 
@@ -383,44 +394,38 @@ lv_obj_t *ir_imaging_create_main_page(lv_obj_t *parent, void *user_data)
 
     tmp_layout = lv_tl_create_base_layout(ir_imaging_global_layout, parent_w, LV_SIZE_CONTENT);
     lv_obj_align(tmp_layout, LV_ALIGN_TOP_MID, 0, IR_IMG_CANVAS_HEIGHT + 12 + 16);
+    lv_obj_set_flex_flow(tmp_layout, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(tmp_layout, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
 
-    // discnt_show_layout = lv_tl_create_base_layout(tmp_layout, parent_w, LV_SIZE_CONTENT);
-    // lv_obj_align(discnt_show_layout, LV_ALIGN_TOP_MID, 0, 0);
-    // lv_obj_set_flex_flow(discnt_show_layout, LV_FLEX_FLOW_COLUMN);
-    // lv_obj_set_flex_align(discnt_show_layout, LV_FLEX_ALIGN_SPACE_AROUND, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    save_btn = lv_btn_create(tmp_layout);
+    tmp_label = lv_label_create(save_btn);
+    lv_label_set_text(tmp_label, "Save");
+    lv_obj_set_user_data(save_btn, tmp_label);
 
-    // lv_obj_t *discnt_tip_label = lv_label_create(discnt_show_layout);
-    // lv_obj_set_style_text_font(max_temp_label, &puhui_55_12, LV_PART_MAIN);
-    // lv_obj_set_style_pad_all(discnt_tip_label, 8, LV_PART_MAIN);
-    // lv_obj_set_style_text_color(discnt_tip_label, lv_palette_main(LV_PALETTE_RED), LV_PART_MAIN);
-    // lv_label_set_text(discnt_tip_label, "Device disconnected!");
+    record_btn = lv_btn_create(tmp_layout);
+    tmp_label = lv_label_create(record_btn);
+    lv_label_set_text(tmp_label, "Record");
+    lv_obj_set_user_data(record_btn, tmp_label);
 
-    // lv_obj_t *cnt_btn = lv_btn_create(discnt_show_layout);
-    // lv_obj_t *cnt_btn_label = lv_label_create(cnt_btn);
-    // lv_label_set_text(cnt_btn_label, "Try Connect");
+    clear_btn = lv_btn_create(tmp_layout);
+    tmp_label = lv_label_create(clear_btn);
+    lv_label_set_text(tmp_label, "Clear");
+    lv_obj_set_user_data(clear_btn, tmp_label);
 
-    ctrl_btn_layout = lv_tl_create_base_layout(tmp_layout, parent_w, LV_SIZE_CONTENT);
-    lv_obj_align(ctrl_btn_layout, LV_ALIGN_TOP_MID, 0, 0);
-    lv_obj_set_flex_flow(ctrl_btn_layout, LV_FLEX_FLOW_ROW);
-    lv_obj_set_flex_align(ctrl_btn_layout, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-
-    ctrl_btn = lv_btn_create(ctrl_btn_layout);
-    lv_obj_t *ctrl_btn_label = lv_label_create(ctrl_btn);
-    lv_label_set_text(ctrl_btn_label, "Save");
-
-    ctrl_btn = lv_btn_create(ctrl_btn_layout);
-    ctrl_btn_label = lv_label_create(ctrl_btn);
-    lv_label_set_text(ctrl_btn_label, "Record");
-
-    ctrl_btn = lv_btn_create(ctrl_btn_layout);
-    ctrl_btn_label = lv_label_create(ctrl_btn);
-    lv_label_set_text(ctrl_btn_label, "Clean");
+    cnt_btn = lv_btn_create(tmp_layout);
+    tmp_label = lv_label_create(cnt_btn);
+    lv_label_set_text(tmp_label, "Connect Device");
+    lv_obj_set_user_data(cnt_btn, tmp_label);
+    lv_obj_add_flag(cnt_btn, LV_OBJ_FLAG_HIDDEN);
 
     buf_layout_config.row_num = ir_imaging_config->row_num;
     buf_layout_config.col_num = ir_imaging_config->col_num;
     buf_layout_config.pixel_size = LV_MIN((IR_IMG_BUF_WIDTH / buf_layout_config.row_num), IR_IMG_BUF_HEIGHT / buf_layout_config.col_num);
     buf_layout_config.x_offset = (IR_IMG_BUF_WIDTH - (buf_layout_config.pixel_size * buf_layout_config.row_num)) / 2;
     buf_layout_config.y_offset = (IR_IMG_BUF_HEIGHT - (buf_layout_config.pixel_size * buf_layout_config.col_num)) / 2;
+
+    target_point.x = 0;
+    target_point.y = 0;
 
     buf_info_refresh_timer = lv_timer_create(ir_imaging_info_refresh_timer, IR_IMG_REFRESH_TIME, ir_imaging_config->ir_img_buf_info);
     lv_obj_add_event_cb(ir_imaging_global_layout, ir_imaging_self_destroy_event_cb, LV_EVENT_DELETE, ir_imaging_config->ir_img_buf_info);

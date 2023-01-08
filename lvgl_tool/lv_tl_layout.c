@@ -1,5 +1,10 @@
 #include "lvgl_tool.h"
 
+/// @brief 创建个基础布局容器（0边框 0填充 0外距 0圆角 背景透明）
+/// @param parent 父容器
+/// @param w 宽
+/// @param h 高
+/// @return 创建的容器
 lv_obj_t *lv_tl_create_base_layout(lv_obj_t *parent, lv_coord_t w, lv_coord_t h)
 {
     lv_obj_t *base_layout = NULL;
@@ -15,47 +20,21 @@ lv_obj_t *lv_tl_create_base_layout(lv_obj_t *parent, lv_coord_t w, lv_coord_t h)
     
     return base_layout;
 }
-
-lv_coord_t lv_tl_obj_get_absolute_x(lv_obj_t *obj, lv_obj_t *scr)
+/// @brief 创建个弹性不换行布局容器（0边框 0填充 0外距 0圆角 背景透明）
+/// @param parent 父容器
+/// @param w 宽
+/// @param h 高
+/// @return 创建的容器
+lv_obj_t *lv_tl_create_flex_linear_layout(lv_obj_t *parent, lv_coord_t w, lv_coord_t h, lv_flex_flow_t flow, lv_flex_align_t main_place)
 {
-    lv_coord_t absolute_x = 0;
-    lv_obj_t *parent = NULL;
-    if (obj == NULL || scr == NULL) return NULL;
+    lv_obj_t *flex_linear_layout = NULL;
+    if (parent == NULL) return NULL;
 
-    absolute_x = lv_obj_get_x(obj);
-    while (1) {
-        parent = lv_obj_get_parent(obj);
-        if (parent != NULL && parent != scr) {
-            absolute_x += lv_obj_get_x(parent);
-            obj = parent;
-        } else break;
-    }
-    return absolute_x;
+    flex_linear_layout = lv_tl_create_base_layout(parent, w, h);
+    lv_obj_set_flex_flow(flex_linear_layout, flow);
+    lv_obj_set_flex_align(flex_linear_layout, main_place, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    
+    return flex_linear_layout;
 }
 
-lv_coord_t lv_tl_obj_get_absolute_y(lv_obj_t *obj, lv_obj_t *scr)
-{
-    lv_coord_t absolute_y = 0;
-    lv_obj_t *parent = NULL;
-    if (obj == NULL || scr == NULL) return NULL;
 
-    absolute_y = lv_obj_get_y(obj);
-    while (1) {
-        parent = lv_obj_get_parent(obj);
-        if (parent != NULL && parent != scr) {
-            absolute_y += lv_obj_get_y(parent);
-            obj = parent;
-        } else break;
-    }
-    return absolute_y;
-}
-
-void lv_tl_indev_get_absolute_point(lv_point_t *point, lv_obj_t *obj, lv_obj_t *scr)
-{
-    const lv_indev_t *indev = lv_indev_get_act();
-    if (indev == NULL || point == NULL || obj == NULL || scr == NULL) return;
-
-    lv_indev_get_point(indev, point);
-    point->x -= lv_tl_obj_get_absolute_x(obj, scr);
-    point->y -= lv_tl_obj_get_absolute_y(obj, scr);
-}
