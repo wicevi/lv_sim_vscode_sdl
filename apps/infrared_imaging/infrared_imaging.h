@@ -6,11 +6,11 @@
 /// @brief 获取到的红外温度及设备状态
 typedef struct
 {
-    float *temperature_buf;         //温度数据
-    float max_temperature;          //最大温度
-    float min_temperature;          //最小温度
-    uint8_t upate_flag;             //是否已更新（0：未更新 1：已更新）
-    uint8_t cnt_states;             //连接状态（0：断开 1：连接）
+    float *temperature_buf;             //温度数据
+    float max_temperature;              //最大温度
+    float min_temperature;              //最小温度
+    uint8_t upate_flag;                 //是否已更新（0：未更新 1：已更新）
+    uint8_t cnt_states;                 //连接状态（0：断开 1：连接）
     uint8_t (*connect_func)(void);      //连接设备函数
     uint8_t (*disconnect_func)(void);   //断开设备函数
 } ir_imaging_buf_info_t;

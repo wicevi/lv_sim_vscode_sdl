@@ -134,8 +134,8 @@ static void desktop_run_app(desktop_app_config_t *app_config)
     if (app_config == NULL) return;
     if (app_config->create_func == NULL) {
         //TODO:显示提示弹窗
-        lv_tl_create_notification(MSG_TYPE_DEFAULT, 2000, "Successs23y1Isda3243rewfdsadasdqwe12323");
-        LV_LOG_USER("Application not implemented!");
+        lv_tl_create_notification(MSG_TYPE_WARN, 2000, "App not implemented!");
+        LV_LOG_USER("App not implemented!");
         return;
     }
 

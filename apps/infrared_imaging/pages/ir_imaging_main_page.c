@@ -9,6 +9,11 @@
 #define IR_IMG_SCALE_N40_COLOR  LV_COLOR_MAKE(0x00, 0xcd, 0xe9)     //-40度颜色
 #define IR_IMG_GLOBAL_BG_COLOR  LV_COLOR_MAKE(0xe6, 0xe6, 0xe6)     //背景颜色
 #define IR_IMG_CANVAS_BG_COLOR  LV_COLOR_MAKE(0xF6, 0xF6, 0xF6)     //画布背景颜色
+//各个按钮标签值
+#define IR_IMG_BTN_SAVE_TAG     "Save"
+#define IR_IMG_BTN_RECORD_TAG   "Record"
+#define IR_IMG_BTN_CLEAR_TAG    "Clear"
+#define IR_IMG_BTN_CNT_DEV_TAG  "Connect Device"
 //画布内容相关参数
 #define IR_IMG_BORDER_SIZE      (5)     //边框大小
 #define IR_IMG_CANVAS_WIDTH     (240)   //画布总宽度
@@ -59,6 +64,8 @@ static lv_obj_t *max_temp_label = NULL, *target_temp_label = NULL, *min_temp_lab
 static lv_obj_t *save_btn = NULL, *record_btn = NULL, *clear_btn = NULL, *cnt_btn = NULL;
 /// @brief 目标坐标信息
 static lv_point_t target_point = {0};
+/// @brief 选中目标图标资源
+static const void *target_img_src = "A:/home/wicevi/lv_sim_vscode_sdl/apps/infrared_imaging/imgs/target2.png";
 /// @brief 成像图片布局配置
 static ir_imaging_buf_layout_config_t buf_layout_config = {0};
 /// @brief 根据温度判断属于哪两个刻度区间
@@ -253,7 +260,7 @@ static void ir_imaging_draw_target(lv_point_t *point, ir_imaging_buf_layout_conf
     if (index >= 0) {
         lv_draw_img_dsc_init(&img_dsc);
         img_dsc.opa = LV_OPA_50;
-        lv_canvas_draw_img(ir_img_canvas, point->x - 12, point->y - 12, "A:/home/wicevi/lv_sim_vscode_sdl/apps/infrared_imaging/imgs/target2.png", &img_dsc);
+        lv_canvas_draw_img(ir_img_canvas, point->x - 12, point->y - 12, target_img_src, &img_dsc);
         lv_label_set_text_fmt(target_temp_label, "%d.%d℃", (int)buf_info->temperature_buf[index], ((int)buf_info->temperature_buf[index] * 10) % 10);
         lv_obj_set_style_text_color(target_temp_label, ir_imaging_get_temperature_color(buf_info->temperature_buf[index]), LV_PART_MAIN);
     }
@@ -269,7 +276,7 @@ static void ir_imaging_canvas_refresh(ir_imaging_buf_info_t *buf_info)
     ir_imaging_draw_target(&target_point, &buf_layout_config, buf_info);
 }
 /// @brief 画布点击事件
-/// @param event 
+/// @param event 事件对象
 static void ir_imaging_canvas_click_event_cb(lv_event_t *event)
 {
     lv_point_t point;
@@ -281,6 +288,32 @@ static void ir_imaging_canvas_click_event_cb(lv_event_t *event)
         target_point.x = point.x;
         target_point.y = point.y;
         ir_imaging_canvas_refresh(buf_info);
+    }
+}
+/// @brief 按钮点击事件
+/// @param event 事件对象
+static void ir_imaging_btn_click_event_cb(lv_event_t *event)
+{
+    ir_imaging_buf_info_t *buf_info = NULL;
+    lv_obj_t *btn_obj = NULL, *btn_label = NULL;
+    char *btn_tag = NULL;
+    btn_obj = lv_event_get_target(event);
+    if (btn_obj == NULL) return;
+    btn_label = lv_obj_get_user_data(btn_obj);
+    if (btn_label == NULL) return;
+    btn_tag = lv_label_get_text(btn_label);
+    buf_info = (ir_imaging_buf_info_t *)lv_event_get_user_data(event);
+    if (btn_tag == NULL || buf_info == NULL) return;
+
+    if (strcmp(IR_IMG_BTN_SAVE_TAG, btn_tag) == 0) {
+        lv_tl_create_notification(MSG_TYPE_WARN, 2000, "Function not implemented!");
+    } else if (strcmp(IR_IMG_BTN_RECORD_TAG, btn_tag) == 0) {
+        lv_tl_create_notification(MSG_TYPE_WARN, 2000, "Function not implemented!");
+    } else if (strcmp(IR_IMG_BTN_CLEAR_TAG, btn_tag) == 0) {
+        lv_tl_create_notification(MSG_TYPE_WARN, 2000, "Function not implemented!");
+    } else if (strcmp(IR_IMG_BTN_CNT_DEV_TAG, btn_tag) == 0) {
+        if (buf_info->connect_func) buf_info->connect_func();
+        else lv_tl_create_notification(MSG_TYPE_WARN, 2000, "Function not implemented!");
     }
 }
 /// @brief 红外成像应用相关数据刷新定时器回调函数
@@ -311,7 +344,7 @@ static void ir_imaging_info_refresh_timer(lv_timer_t *timer)
         buf_info->upate_flag = 0;
     }
 }
-/// @brief 红外成像销毁事件回调
+/// @brief 红外成像应用销毁事件回调
 /// @param event 事件对象
 static void ir_imaging_self_destroy_event_cb(lv_event_t *event)
 {
@@ -370,7 +403,7 @@ lv_obj_t *ir_imaging_create_main_page(lv_obj_t *parent, void *user_data)
     lv_obj_add_flag(ir_img_canvas, LV_OBJ_FLAG_CLICKABLE);
     lv_obj_add_event_cb(ir_img_canvas, ir_imaging_canvas_click_event_cb, LV_EVENT_CLICKED, ir_imaging_config->ir_img_buf_info);
 
-    tmp_layout = lv_tl_create_base_layout(ir_imaging_global_layout, parent_w, 16);
+    tmp_layout = lv_tl_create_base_layout(ir_imaging_global_layout, parent_w, 18);
     lv_obj_align(tmp_layout, LV_ALIGN_TOP_MID, 0, IR_IMG_CANVAS_HEIGHT + 6);
     lv_obj_set_flex_flow(tmp_layout, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(tmp_layout, LV_FLEX_ALIGN_SPACE_BETWEEN, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -399,24 +432,28 @@ lv_obj_t *ir_imaging_create_main_page(lv_obj_t *parent, void *user_data)
 
     save_btn = lv_btn_create(tmp_layout);
     tmp_label = lv_label_create(save_btn);
-    lv_label_set_text(tmp_label, "Save");
+    lv_label_set_text(tmp_label, IR_IMG_BTN_SAVE_TAG);
     lv_obj_set_user_data(save_btn, tmp_label);
+    lv_obj_add_event_cb(save_btn, ir_imaging_btn_click_event_cb, LV_EVENT_CLICKED, ir_imaging_config->ir_img_buf_info);
 
     record_btn = lv_btn_create(tmp_layout);
     tmp_label = lv_label_create(record_btn);
-    lv_label_set_text(tmp_label, "Record");
+    lv_label_set_text(tmp_label, IR_IMG_BTN_RECORD_TAG);
     lv_obj_set_user_data(record_btn, tmp_label);
+    lv_obj_add_event_cb(record_btn, ir_imaging_btn_click_event_cb, LV_EVENT_CLICKED, ir_imaging_config->ir_img_buf_info);
 
     clear_btn = lv_btn_create(tmp_layout);
     tmp_label = lv_label_create(clear_btn);
-    lv_label_set_text(tmp_label, "Clear");
+    lv_label_set_text(tmp_label, IR_IMG_BTN_CLEAR_TAG);
     lv_obj_set_user_data(clear_btn, tmp_label);
+    lv_obj_add_event_cb(clear_btn, ir_imaging_btn_click_event_cb, LV_EVENT_CLICKED, ir_imaging_config->ir_img_buf_info);
 
     cnt_btn = lv_btn_create(tmp_layout);
     tmp_label = lv_label_create(cnt_btn);
-    lv_label_set_text(tmp_label, "Connect Device");
+    lv_label_set_text(tmp_label, IR_IMG_BTN_CNT_DEV_TAG);
     lv_obj_set_user_data(cnt_btn, tmp_label);
     lv_obj_add_flag(cnt_btn, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(cnt_btn, ir_imaging_btn_click_event_cb, LV_EVENT_CLICKED, ir_imaging_config->ir_img_buf_info);
 
     buf_layout_config.row_num = ir_imaging_config->row_num;
     buf_layout_config.col_num = ir_imaging_config->col_num;
